@@ -30,7 +30,7 @@
     "build": "tsc && node -e \"import('node:fs').then(f=>f.chmodSync('dist/cli.js',0o755)).catch(()=>{})\"",
     "watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node test/runner.js",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

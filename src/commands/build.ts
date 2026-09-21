@@ -163,11 +163,11 @@ export async function runBuild(options: BuildCliOptions = {}): Promise<any> {
   if (config.binary.strip) {
     spinner.start("Stripping debug symbols from binary...");
     const stripRes = await stripExecutable(seaResult.outputPath);
-    if (stripRes.success) {
+    if (stripRes.success && !stripRes.skipped) {
       currentExeSize = stripRes.afterSize;
       spinner.succeed("Stripped debug symbols", `(-${formatBytes(stripRes.savedBytes)}, now ${formatBytes(currentExeSize)})`);
     } else if (stripRes.skipped) {
-      spinner.warn(`Symbol strip skipped: ${stripRes.error}`);
+      spinner.succeed("Symbol stripping skipped", `(${stripRes.error})`);
     } else {
       spinner.warn(`Symbol strip warning: ${stripRes.error}`);
     }

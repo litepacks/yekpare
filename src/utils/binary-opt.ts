@@ -72,27 +72,32 @@ export async function stripExecutable(binaryPath: string): Promise<StripResult> 
           execSync(`codesign --sign - --force "${binaryPath}"`, { stdio: "ignore" });
         } catch {}
       }
-    } else if (process.platform === "win32") {
-      // Windows (e.g. MinGW strip)
-      execSync(`strip "${binaryPath}"`, { stdio: "pipe" });
+
+      const afterSize = fs.statSync(binaryPath).size;
+      const savedBytes = Math.max(0, beforeSize - afterSize);
+
+      return {
+        success: true,
+        beforeSize,
+        afterSize,
+        savedBytes,
+      };
     } else {
-      // Linux ELF symbol stripping
-      try {
-        execSync(`strip --strip-all "${binaryPath}"`, { stdio: "pipe" });
-      } catch {
-        execSync(`strip -s "${binaryPath}"`, { stdio: "pipe" });
-      }
+      // Linux ELF & Windows PE:
+      // Node.js release binaries are already pre-stripped by upstream build pipelines.
+      // Running strip on postjected ELF/PE binaries corrupts/removes the injected NODE_SEA_BLOB section.
+      return {
+        success: true,
+        skipped: true,
+        error:
+          process.platform === "win32"
+            ? "Stripping is not supported on Windows PE binaries"
+            : "Upstream Linux binary is pre-stripped; skipped to protect ELF SEA blob",
+        beforeSize,
+        afterSize: beforeSize,
+        savedBytes: 0,
+      };
     }
-
-    const afterSize = fs.statSync(binaryPath).size;
-    const savedBytes = Math.max(0, beforeSize - afterSize);
-
-    return {
-      success: true,
-      beforeSize,
-      afterSize,
-      savedBytes,
-    };
   } catch (err: any) {
     const afterSize = fs.statSync(binaryPath).size;
     return {
