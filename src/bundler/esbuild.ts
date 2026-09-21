@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { Bundler, BundleOptions, BundleResult, BundlerAsset } from "./types.js";
 
@@ -71,7 +72,7 @@ export class EsbuildBundler implements Bundler {
             if (typeof __dirname !== "undefined") {
               dir = __dirname;
             } else if (typeof import.meta !== "undefined" && import.meta.url) {
-              dir = path.dirname(new URL(import.meta.url).pathname);
+              dir = path.dirname(fileURLToPath(import.meta.url));
             }
           } catch {}
 
