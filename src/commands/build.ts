@@ -53,6 +53,16 @@ export async function runBuild(options: BuildCliOptions = {}): Promise<any> {
 
   const config = await resolveConfig(cwd, overrides, options.config);
 
+  if (!fs.existsSync(config.entry)) {
+    throw new Error(
+      `Could not find CLI entry point: ${config.entry}\n\n` +
+      `Please specify your CLI entry file explicitly:\n` +
+      `  $ yekpare build <path/to/entry.ts>\n\n` +
+      `Or configure it in yekpare.config.ts:\n` +
+      `  export default defineConfig({ entry: "path/to/entry.ts" });`
+    );
+  }
+
   if (!options.quiet && !options.json) {
     console.log(formatHeader("build", "Compiling Node.js CLI into standalone executable"));
   }

@@ -109,18 +109,62 @@ export function inspectProject(projectRoot: string): ProjectInspection {
     "cli.js",
   ].filter(Boolean) as string[];
 
+  // Monorepo / workspaces entry discovery (e.g. packages/*/package.json)
+  const packagesDir = path.join(projectRoot, "packages");
+  if (fs.existsSync(packagesDir)) {
+    try {
+      if (fs.statSync(packagesDir).isDirectory()) {
+        const subdirs = fs.readdirSync(packagesDir);
+        for (const sub of subdirs) {
+          const subPkgPath = path.join(packagesDir, sub, "package.json");
+          if (fileExistsSync(subPkgPath)) {
+            try {
+              const subPkg = JSON.parse(fs.readFileSync(subPkgPath, "utf8"));
+              if (subPkg.bin) {
+                if (typeof subPkg.bin === "string") {
+                  candidateEntries.push(path.join("packages", sub, subPkg.bin));
+                } else if (typeof subPkg.bin === "object") {
+                  for (const bKey of Object.keys(subPkg.bin)) {
+                    candidateEntries.push(path.join("packages", sub, subPkg.bin[bKey]));
+                  }
+                }
+              }
+              candidateEntries.push(path.join("packages", sub, "src", "main.ts"));
+              candidateEntries.push(path.join("packages", sub, "src", "cli.ts"));
+              candidateEntries.push(path.join("packages", sub, "src", "index.ts"));
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
   let detectedEntry: string | undefined;
   for (const candidate of candidateEntries) {
     // If candidate is a dist file (e.g. ./dist/cli.js), look for corresponding source file first
-    if (candidate.startsWith("dist/") || candidate.startsWith("./dist/")) {
-      const srcTs = candidate.replace(/^\.?\/?dist\//, "src/").replace(/\.js$/, ".ts");
+    if (candidate.startsWith("dist/") || candidate.startsWith("./dist/") || candidate.includes("/dist/") || candidate.includes("\\dist\\")) {
+      const srcTs = candidate.replace(/([/\\])dist([/\\])/, "$1src$2").replace(/\.js$/, ".ts");
       if (fileExistsSync(path.join(projectRoot, srcTs))) {
         detectedEntry = srcTs;
         break;
       }
-      const srcJs = candidate.replace(/^\.?\/?dist\//, "src/").replace(/\.js$/, ".js");
+      const srcJs = candidate.replace(/([/\\])dist([/\\])/, "$1src$2").replace(/\.js$/, ".js");
       if (fileExistsSync(path.join(projectRoot, srcJs))) {
         detectedEntry = srcJs;
+        break;
+      }
+    }
+
+    // If candidate is in a bin/ dir, check for companion src/main.ts or src/cli.ts
+    if (candidate.includes("bin/") || candidate.includes("bin\\")) {
+      const srcMain = candidate.replace(/([/\\])bin([/\\])[^/\\]+$/, "$1src$2main.ts");
+      if (fileExistsSync(path.join(projectRoot, srcMain))) {
+        detectedEntry = srcMain;
+        break;
+      }
+      const srcCli = candidate.replace(/([/\\])bin([/\\])[^/\\]+$/, "$1src$2cli.ts");
+      if (fileExistsSync(path.join(projectRoot, srcCli))) {
+        detectedEntry = srcCli;
         break;
       }
     }

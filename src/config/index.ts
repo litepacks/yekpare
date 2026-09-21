@@ -135,9 +135,10 @@ export async function resolveConfig(
   // Resolve entry with inference priority:
   // 1. Explicit override (CLI arg)
   // 2. Config entry
-  // 3. Detected entry from package.json (bin/main/sources)
-  // 4. Default "src/cli.ts" or "src/index.ts"
+  // 3. Detected entry from package.json (bin/main/workspaces/sources)
+  // 4. Default fallback ("src/cli.ts")
   let entry = merged.entry || inspection.detectedEntry || "src/cli.ts";
+
   if (!path.isAbsolute(entry)) {
     entry = path.resolve(projectRoot, entry);
   }
