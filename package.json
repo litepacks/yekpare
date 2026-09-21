@@ -1,0 +1,69 @@
+{
+  "name": "yekpare",
+  "version": "0.1.0",
+  "description": "Build once, ship as one executable. Developer toolchain for turning Node.js CLI applications into standalone executables.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "yekpare": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/yekpare*",
+    "!dist/*.exe",
+    "!dist/*.blob",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"import('node:fs').then(f=>f.chmodSync('dist/cli.js',0o755)).catch(()=>{})\"",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "sea",
+    "single-executable-application",
+    "cli",
+    "compiler",
+    "packager",
+    "bundler",
+    "executable",
+    "standalone",
+    "distribution",
+    "packaging"
+  ],
+  "author": "litepacks",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.26.9",
+    "@babel/traverse": "^7.26.9",
+    "@babel/types": "^7.26.9",
+    "cac": "^6.7.14",
+    "esbuild": "^0.25.0",
+    "fast-glob": "^3.3.3",
+    "picocolors": "^1.1.1",
+    "postject": "^1.0.0-alpha.6"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.20.6",
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

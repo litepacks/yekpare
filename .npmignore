@@ -1,0 +1,30 @@
+# Source code & configs (compiled artifacts in dist/ are shipped)
+src/
+test/
+bench/
+.agents/
+.github/
+tsconfig.json
+
+# Exclude standalone compiled SEA executables and blobs
+# (npm package must only include lightweight JS/d.ts library files, not 100MB+ binaries)
+dist/yekpare
+dist/yekpare.exe
+dist/*.exe
+dist/*.blob
+dist/*.node
+*.blob
+*.exe
+
+# Release archives & checksums
+release/
+*.tar.gz
+*.tar.xz
+*.zip
+SHA256SUMS
+
+# Logs, Cache & OS files
+*.log
+.cache/
+.DS_Store
+Thumbs.db

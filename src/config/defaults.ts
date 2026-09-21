@@ -1,0 +1,146 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileExistsSync } from "../utils/fs.js";
+import { TargetPlatform } from "./types.js";
+
+export interface ProjectInspection {
+  hasPackageJson: boolean;
+  packageName?: string;
+  packageVersion?: string;
+  binEntry?: { name: string; path: string };
+  mainEntry?: string;
+  isModule: boolean;
+  hasTsConfig: boolean;
+  detectedEntry?: string;
+  nodeVersion?: string;
+  lockfile?: string;
+}
+
+export function getCurrentTarget(): TargetPlatform {
+  const platform = process.platform;
+  const arch = process.arch;
+
+  if (platform === "darwin" && (arch === "arm64" || arch === "x64")) {
+    return `darwin-${arch}` as TargetPlatform;
+  }
+  if (platform === "linux" && (arch === "arm64" || arch === "x64")) {
+    return `linux-${arch}` as TargetPlatform;
+  }
+  if (platform === "win32" && (arch === "x64" || arch === "arm64")) {
+    return `win32-${arch}` as TargetPlatform;
+  }
+  return "current";
+}
+
+export function inspectProject(projectRoot: string): ProjectInspection {
+  const pkgPath = path.join(projectRoot, "package.json");
+  const tsconfigPath = path.join(projectRoot, "tsconfig.json");
+
+  let hasPackageJson = false;
+  let packageName: string | undefined;
+  let packageVersion: string | undefined;
+  let binEntry: { name: string; path: string } | undefined;
+  let mainEntry: string | undefined;
+  let isModule = false;
+  let nodeVersion: string | undefined = process.version;
+  let lockfile: string | undefined;
+
+  if (fileExistsSync(pkgPath)) {
+    hasPackageJson = true;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      packageName = pkg.name;
+      packageVersion = pkg.version;
+      isModule = pkg.type === "module";
+
+      if (pkg.bin) {
+        if (typeof pkg.bin === "string") {
+          binEntry = { name: pkg.name || "app", path: pkg.bin };
+        } else if (typeof pkg.bin === "object") {
+          const keys = Object.keys(pkg.bin);
+          if (keys.length > 0) {
+            binEntry = { name: keys[0], path: pkg.bin[keys[0]] };
+          }
+        }
+      }
+
+      if (pkg.main) {
+        mainEntry = pkg.main;
+      }
+
+      if (pkg.engines?.node) {
+        nodeVersion = pkg.engines.node;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const hasTsConfig = fileExistsSync(tsconfigPath);
+
+  // Detect lockfile
+  const lockfiles = [
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "yarn.lock",
+    "bun.lockb",
+  ];
+  for (const lf of lockfiles) {
+    if (fileExistsSync(path.join(projectRoot, lf))) {
+      lockfile = lf;
+      break;
+    }
+  }
+
+  // Infer entry candidate
+  const candidateEntries = [
+    binEntry?.path,
+    // TypeScript sources if tsconfig exists
+    hasTsConfig ? "src/cli.ts" : null,
+    hasTsConfig ? "src/index.ts" : null,
+    hasTsConfig ? "src/main.ts" : null,
+    // JS sources
+    "src/cli.js",
+    "src/index.js",
+    "bin/cli.js",
+    "bin/index.js",
+    mainEntry,
+    "index.js",
+    "cli.js",
+  ].filter(Boolean) as string[];
+
+  let detectedEntry: string | undefined;
+  for (const candidate of candidateEntries) {
+    // If candidate is a dist file (e.g. ./dist/cli.js), look for corresponding source file first
+    if (candidate.startsWith("dist/") || candidate.startsWith("./dist/")) {
+      const srcTs = candidate.replace(/^\.?\/?dist\//, "src/").replace(/\.js$/, ".ts");
+      if (fileExistsSync(path.join(projectRoot, srcTs))) {
+        detectedEntry = srcTs;
+        break;
+      }
+      const srcJs = candidate.replace(/^\.?\/?dist\//, "src/").replace(/\.js$/, ".js");
+      if (fileExistsSync(path.join(projectRoot, srcJs))) {
+        detectedEntry = srcJs;
+        break;
+      }
+    }
+
+    if (fileExistsSync(path.join(projectRoot, candidate))) {
+      detectedEntry = candidate;
+      break;
+    }
+  }
+
+  return {
+    hasPackageJson,
+    packageName,
+    packageVersion,
+    binEntry,
+    mainEntry,
+    isModule,
+    hasTsConfig,
+    detectedEntry,
+    nodeVersion,
+    lockfile,
+  };
+}
