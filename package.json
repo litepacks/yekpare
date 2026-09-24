@@ -1,6 +1,6 @@
 {
   "name": "yekpare",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Build once, ship as one executable. Developer toolchain for turning Node.js CLI applications into standalone executables.",
   "type": "module",
   "main": "./dist/index.js",
