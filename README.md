@@ -241,6 +241,71 @@ export default defineConfig({
 
 ---
 
+## Environment Variables & Define Injection
+
+Yekpare supports compile-time **Environment Variable Inlining** and **Global Define Macros**. This allows you to embed build metadata, URLs, feature flags, or load variables from `.env` files directly into your standalone binary.
+
+### 1. Build-Time Inlining (`process.env.*`)
+
+When injected, references to `process.env.API_URL` or `process.env.FEATURE_X` in your source code are replaced with constant literals at bundle time, enabling dead-code elimination (tree-shaking).
+
+By default, Yekpare sets `process.env.NODE_ENV = "production"` to strip development-only blocks and debug logging from the final executable.
+
+### 2. In `yekpare.config.ts`
+
+```ts
+import { defineConfig } from "yekpare";
+import pkg from "./package.json";
+
+export default defineConfig({
+  entry: "./src/cli.ts",
+  name: "my-cli",
+
+  // 1. Injected environment variables (inlined as process.env.<KEY>)
+  env: {
+    APP_VERSION: pkg.version,
+    API_BASE_URL: "https://api.mytool.dev",
+    ENABLE_TELEMETRY: false,
+  },
+
+  // 2. Load .env file at build time
+  envFile: ".env.production", // or [".env", ".env.local"]
+
+  bundle: {
+    minify: true,
+    // 3. Raw esbuild define macros
+    define: {
+      "__BUILD_DATE__": JSON.stringify(new Date().toISOString()),
+    },
+  },
+});
+```
+
+### 3. CLI Flags
+
+Pass environment variables or `.env` files directly from the command line:
+
+```bash
+# Inject single environment variable
+npx yekpare build --env API_URL=https://api.staging.dev
+
+# Inject multiple environment variables
+npx yekpare build -e API_URL=https://api.example.com -e REGION=eu-central-1
+
+# Load build-time environment from a .env file
+npx yekpare build --env-file .env.production
+
+# Define a custom global identifier replacement
+npx yekpare build --define __DEBUG__=false
+```
+
+### 4. Runtime vs. Build-Time Precedence
+
+* **Runtime Variables:** Standalone binaries can still access host operating system environment variables at runtime via standard `process.env.KEY` (unless overridden by build-time inlining).
+* **Security Notice ⚠️:** Standalone binaries can be inspected with tools like `strings` or reverse-engineering decompilers. **Never hardcode private API keys, database credentials, or sensitive secrets at build time.** Sensitive values should always be supplied by the user at runtime.
+
+---
+
 ## CI/CD Multi-Platform Matrix
 
 Generate a complete GitHub Actions matrix build workflow:

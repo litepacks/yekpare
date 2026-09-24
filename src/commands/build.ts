@@ -14,6 +14,7 @@ import { detectNativeAddons } from "../analysis/compatibility.js";
 import { formatBytes, formatHeader, symbols } from "../utils/format.js";
 import { createSpinner } from "../utils/progress.js";
 import { stripExecutable, compressWithUpx } from "../utils/binary-opt.js";
+import { parseKeyValuePairs } from "../utils/env.js";
 
 export interface BuildCliOptions {
   entry?: string;
@@ -24,6 +25,9 @@ export interface BuildCliOptions {
   strip?: boolean;
   upx?: boolean;
   upxArgs?: string[];
+  env?: string | string[];
+  envFile?: string | string[];
+  define?: string | string[];
   quiet?: boolean;
   json?: boolean;
   validate?: boolean;
@@ -38,7 +42,20 @@ export async function runBuild(options: BuildCliOptions = {}): Promise<any> {
   if (options.target) overrides.targets = [options.target as TargetPlatform];
   if (options.outDir) overrides.outDir = options.outDir;
   if (options.minify !== undefined) {
-    overrides.bundle = { minify: options.minify };
+    overrides.bundle = { ...(overrides.bundle || {}), minify: options.minify };
+  }
+  if (options.env) {
+    overrides.env = parseKeyValuePairs(options.env);
+  }
+  if (options.envFile) {
+    overrides.envFile = options.envFile;
+  }
+  if (options.define) {
+    const parsedDefine = parseKeyValuePairs(options.define);
+    overrides.bundle = {
+      ...(overrides.bundle || {}),
+      define: parsedDefine,
+    };
   }
   if (options.strip !== undefined || options.upx !== undefined || options.upxArgs !== undefined) {
     overrides.binary = {
@@ -120,9 +137,11 @@ export async function runBuild(options: BuildCliOptions = {}): Promise<any> {
   const compat = await detectNativeAddons(config.projectRoot, config.targets);
   const relEntry = path.relative(cwd, config.entry) || config.entry;
 
+  const envCount = Object.keys(config.env).length;
   const analysisDetail = [
     `${pc.dim("entry:")} ${relEntry}`,
     compat.addons.length > 0 ? `${pc.yellow(`${compat.addons.length} native addon(s)`)}` : null,
+    envCount > 0 ? `${pc.cyan(`${envCount} env var(s)`)}` : null,
   ].filter(Boolean).join(", ");
 
   spinner.succeed("Project analyzed", analysisDetail ? `(${analysisDetail})` : undefined);
@@ -141,6 +160,7 @@ export async function runBuild(options: BuildCliOptions = {}): Promise<any> {
     footer: config.bundle.footer,
     assets: bundlerAssets,
     appName: config.name,
+    define: config.bundle.define,
   });
 
   spinner.succeed("Bundled application", `(${formatBytes(bundleResult.size)})`);

@@ -20,7 +20,7 @@ Yekpare is a complete developer toolchain for compiling Node.js CLI applications
 | `yekpare init` | Scaffolds `yekpare.config.ts` or updates `package.json` | `--force`, `--json` |
 | `yekpare doctor [entry]` | Static analysis for SEA compatibility risks | `--strict`, `--json` |
 | `yekpare trace [...cmd]` | Runtime observation of file reads & dynamic requires | `--output <file>`, `--json` |
-| `yekpare build [entry]` | Bundles and injects code/assets into standalone binary | `--strip`, `--upx`, `--minify`, `--target <os-arch>` |
+| `yekpare build [entry]` | Bundles and injects code/assets/env into standalone binary | `--strip`, `--upx`, `--minify`, `-e KEY=VAL`, `--env-file .env`, `--define K=V` |
 | `yekpare inspect <bin>` | Displays binary size breakdown, Node version & assets | `--json` |
 | `yekpare test [binary]` | Validates binary execution and flag responses | `--args <list>`, `--json` |
 | `yekpare diff <b1> <b2>` | Compares two binaries or build manifests | `--json` |
@@ -41,10 +41,17 @@ export default defineConfig({
   name: "my-cli",
   entry: "src/cli.ts",
   targets: ["darwin-arm64", "linux-x64", "win32-x64"],
+  env: {
+    API_URL: "https://api.mytool.dev",
+  },
+  envFile: ".env.production",
   bundle: {
     minify: true,
     sourcemap: false,
     external: [],
+    define: {
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
   },
   binary: {
     strip: true, // Strips debug symbols (reduces size by ~15-30%)
@@ -52,7 +59,7 @@ export default defineConfig({
     upxArgs: ["-9", "--force-macos"],
   },
   assets: {
-    include: ["templates/**", "assets/**"],
+    patterns: ["templates/**", "assets/**"],
     compression: "brotli", // "none" | "gzip" | "brotli"
   },
   release: {

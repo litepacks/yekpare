@@ -35,6 +35,9 @@ cli
   .option("-s, --strip", "Strip debug symbols from the standalone binary")
   .option("--upx", "Compress the standalone binary with UPX")
   .option("--upx-args <args>", "Custom arguments to pass to UPX")
+  .option("-e, --env <item>", "Inject environment variable at build-time (KEY=VALUE)")
+  .option("--env-file <file>", "Load build-time environment variables from .env file")
+  .option("--define <item>", "Define identifier replacement for bundler (KEY=VALUE)")
   .option("-q, --quiet", "Suppress non-error logs")
   .option("--json", "Output build result as JSON")
   .option("--no-validate", "Skip post-build executable validation check")
@@ -50,6 +53,9 @@ cli
         strip: options.strip,
         upx: options.upx,
         upxArgs,
+        env: options.env,
+        envFile: options.envFile,
+        define: options.define,
         quiet: options.quiet,
         json: options.json,
         validate: options.validate !== false,

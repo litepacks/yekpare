@@ -3,6 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import * as esbuild from "esbuild";
 import { fileExistsSync } from "../utils/fs.js";
+import { loadDotenvFile, formatEnvForDefine } from "../utils/env.js";
 import { ResolvedConfig, YekpareConfig, AssetOptions } from "./types.js";
 import { getCurrentTarget, inspectProject } from "./defaults.js";
 
@@ -125,7 +126,13 @@ export async function resolveConfig(
   const merged: YekpareConfig = {
     ...rawConfig,
     ...overrides,
-    bundle: { ...rawConfig.bundle, ...overrides.bundle },
+    env: { ...rawConfig.env, ...overrides.env },
+    bundle: {
+      ...rawConfig.bundle,
+      ...overrides.bundle,
+      define: { ...rawConfig.bundle?.define, ...overrides.bundle?.define },
+      env: { ...rawConfig.bundle?.env, ...overrides.bundle?.env },
+    },
     sea: { ...rawConfig.sea, ...overrides.sea },
     binary: { ...rawConfig.binary, ...overrides.binary },
     release: { ...rawConfig.release, ...overrides.release },
@@ -178,6 +185,61 @@ export async function resolveConfig(
 
   const outDir = path.resolve(projectRoot, merged.outDir || "dist");
 
+  // Resolve env files & env variables
+  const envFiles: string[] = [];
+  if (merged.envFile) {
+    if (typeof merged.envFile === "boolean" && merged.envFile) {
+      envFiles.push(path.resolve(projectRoot, ".env"));
+    } else if (typeof merged.envFile === "string") {
+      envFiles.push(path.resolve(projectRoot, merged.envFile));
+    } else if (Array.isArray(merged.envFile)) {
+      for (const ef of merged.envFile) {
+        if (typeof ef === "string") {
+          envFiles.push(path.resolve(projectRoot, ef));
+        }
+      }
+    }
+  }
+
+  // Load key-values from env files
+  const loadedEnv: Record<string, string> = {};
+  for (const envFilePath of envFiles) {
+    const fileVars = loadDotenvFile(envFilePath);
+    Object.assign(loadedEnv, fileVars);
+  }
+
+  // Merge explicitly provided envs (from top-level env or bundle.env)
+  const combinedEnvConfig = {
+    ...loadedEnv,
+    ...(merged.bundle?.env || {}),
+    ...(merged.env || {}),
+  };
+
+  const stringifiedEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(combinedEnvConfig)) {
+    if (v !== undefined) {
+      stringifiedEnv[k] = String(v);
+    }
+  }
+
+  // Format defines: process.env.KEY -> JSON.stringify(val)
+  const envDefines = formatEnvForDefine(stringifiedEnv);
+
+  const rawDefines = {
+    ...(merged.bundle?.define || {}),
+  };
+
+  // Provide default NODE_ENV: "production" if not explicitly specified
+  if (!rawDefines["process.env.NODE_ENV"] && !envDefines["process.env.NODE_ENV"]) {
+    envDefines["process.env.NODE_ENV"] = JSON.stringify("production");
+    stringifiedEnv["NODE_ENV"] = "production";
+  }
+
+  const finalDefines: Record<string, string> = {
+    ...envDefines,
+    ...rawDefines,
+  };
+
   return {
     entry,
     name,
@@ -189,6 +251,8 @@ export async function resolveConfig(
       rootDir: assetRootDir,
     },
     outDir,
+    env: stringifiedEnv,
+    envFiles,
     sea: {
       useSnapshot: merged.sea?.useSnapshot ?? false,
       useCodeCache: merged.sea?.useCodeCache ?? true,
@@ -202,6 +266,7 @@ export async function resolveConfig(
       external: merged.bundle?.external ?? [],
       banner: merged.bundle?.banner,
       footer: merged.bundle?.footer,
+      define: finalDefines,
     },
     validation: {
       runVersionCheck: merged.validation?.runVersionCheck ?? true,

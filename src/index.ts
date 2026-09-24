@@ -36,3 +36,4 @@ export { createSpinner, withSpinner, Spinner } from "./utils/progress.js";
 export { hashContent, hashContentFull, hashFile } from "./utils/hash.js";
 export { getYekpareCacheDir, getPlatformCacheBaseDir } from "./utils/cache.js";
 export { writeFileAtomic, ensureDir, fileExists } from "./utils/fs.js";
+export { parseDotenv, loadDotenvFile, parseKeyValuePairs, formatEnvForDefine } from "./utils/env.js";

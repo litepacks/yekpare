@@ -49,6 +49,17 @@ export interface YekpareConfig {
   outDir?: string;
 
   /**
+   * Environment variables to inject at build time (e.g. { API_URL: "https://api.example.com" }).
+   * Inlined into `process.env.<KEY>` expressions.
+   */
+  env?: Record<string, string | number | boolean>;
+
+  /**
+   * Path(s) to `.env` files to load and inject at build time (e.g. ".env" or [".env", ".env.local"]).
+   */
+  envFile?: string | string[] | boolean;
+
+  /**
    * Node SEA configuration options.
    */
   sea?: {
@@ -67,6 +78,8 @@ export interface YekpareConfig {
     external?: string[];
     banner?: string;
     footer?: string;
+    define?: Record<string, string>;
+    env?: Record<string, string | number | boolean>;
   };
 
   /**
@@ -112,6 +125,8 @@ export interface ResolvedConfig {
     rootDir: string;
   };
   outDir: string;
+  env: Record<string, string>;
+  envFiles: string[];
   sea: {
     useSnapshot: boolean;
     useCodeCache: boolean;
@@ -124,6 +139,7 @@ export interface ResolvedConfig {
     external: string[];
     banner?: string;
     footer?: string;
+    define: Record<string, string>;
   };
   binary: {
     strip: boolean;
