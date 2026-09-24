@@ -66,10 +66,12 @@ describe("Installer Script Generator Test Suite", () => {
     const content = fs.readFileSync(outputPath, "utf8");
     assert.match(content, /APP_NAME="my-test-cli"/);
 
-    // Verify mode is executable
-    const stat = fs.statSync(outputPath);
-    const isExecutable = (stat.mode & 0o111) !== 0;
-    assert.ok(isExecutable, "install.sh must be executable");
+    // Verify mode is executable on POSIX platforms (Windows NTFS doesn't set Unix executable mode bits)
+    if (process.platform !== "win32") {
+      const stat = fs.statSync(outputPath);
+      const isExecutable = (stat.mode & 0o111) !== 0;
+      assert.ok(isExecutable, "install.sh must be executable");
+    }
   });
 
   test("teardown temporary directory", () => {
