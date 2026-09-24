@@ -8,6 +8,7 @@ import { runInspect } from "./commands/inspect.js";
 import { runTraceCommand } from "./commands/trace.js";
 import { runCiCommand } from "./commands/ci.js";
 import { runHomebrewCommand } from "./commands/homebrew.js";
+import { runInstallerCommand } from "./commands/installer.js";
 import { runTestCommand } from "./commands/test.js";
 import { runDiffCommand } from "./commands/diff.js";
 import { runReleaseCommand } from "./commands/release.js";
@@ -126,9 +127,28 @@ cli
 
 cli
   .command("ci [provider]", "Generate multi-platform CI release workflow (e.g. github)")
-  .action(async (provider) => {
+  .option("-c, --config <file>", "Path to Yekpare config file")
+  .option("--deb", "Include Debian (.deb) package build step in Linux matrix")
+  .option("--homebrew", "Include automated Homebrew Formula checksum updating step")
+  .option("--npm", "Include automated NPM publish job")
+  .option("--strip", "Enable binary symbol stripping in CI (default: true)")
+  .option("--no-strip", "Disable binary symbol stripping in CI")
+  .option("--upx", "Enable UPX compression in CI build step")
+  .option("--node <version>", "Node.js version for CI (default: 22)")
+  .option("-o, --output <path>", "Workflow output file (default: .github/workflows/yekpare-release.yml)")
+  .action(async (provider, options) => {
     try {
-      await runCiCommand({ provider: provider || "github" });
+      await runCiCommand({
+        provider: provider || "github",
+        config: options.config,
+        deb: options.deb,
+        homebrew: options.homebrew,
+        npm: options.npm,
+        strip: options.strip !== undefined ? options.strip : undefined,
+        upx: options.upx,
+        node: options.node,
+        output: options.output,
+      });
     } catch (err: any) {
       console.error(pc.red(`\nCI generator error: ${err.message}\n`));
       process.exit(1);
@@ -143,6 +163,24 @@ cli
       await runHomebrewCommand({ repo: options.repo });
     } catch (err: any) {
       console.error(pc.red(`\nHomebrew generator error: ${err.message}\n`));
+      process.exit(1);
+    }
+  });
+
+cli
+  .command("installer", "Generate standalone one-line bash installer script (install.sh)")
+  .option("--repo <repo>", "GitHub repository (owner/repo or full URL)")
+  .option("-o, --output <file>", "Output file path (default: install.sh)")
+  .option("--dir <dir>", "Default installation directory (default: /usr/local/bin)")
+  .action(async (options) => {
+    try {
+      await runInstallerCommand({
+        repo: options.repo,
+        output: options.output,
+        defaultDir: options.dir,
+      });
+    } catch (err: any) {
+      console.error(pc.red(`\nInstaller generator error: ${err.message}\n`));
       process.exit(1);
     }
   });

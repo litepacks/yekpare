@@ -14,6 +14,8 @@ export interface ProjectInspection {
   detectedEntry?: string;
   nodeVersion?: string;
   lockfile?: string;
+  description?: string;
+  author?: string;
 }
 
 export function getCurrentTarget(): TargetPlatform {
@@ -44,6 +46,8 @@ export function inspectProject(projectRoot: string): ProjectInspection {
   let isModule = false;
   let nodeVersion: string | undefined = process.version;
   let lockfile: string | undefined;
+  let description: string | undefined;
+  let author: string | undefined;
 
   if (fileExistsSync(pkgPath)) {
     hasPackageJson = true;
@@ -52,6 +56,17 @@ export function inspectProject(projectRoot: string): ProjectInspection {
       packageName = pkg.name;
       packageVersion = pkg.version;
       isModule = pkg.type === "module";
+      description = pkg.description;
+
+      if (pkg.author) {
+        if (typeof pkg.author === "string") {
+          author = pkg.author;
+        } else if (typeof pkg.author === "object") {
+          const parts = [pkg.author.name];
+          if (pkg.author.email) parts.push(`<${pkg.author.email}>`);
+          author = parts.filter(Boolean).join(" ");
+        }
+      }
 
       if (pkg.bin) {
         if (typeof pkg.bin === "string") {

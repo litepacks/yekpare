@@ -1,0 +1,172 @@
+name: Yekpare Multi-Platform Release Matrix
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    name: Build (${{ matrix.target.target_name }})
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - os: darwin
+            arch: arm64
+            runner: macos-14
+            target_name: darwin-arm64
+            bin_suffix: ''
+          - os: linux
+            arch: x64
+            runner: ubuntu-latest
+            target_name: linux-x64
+            bin_suffix: ''
+          - os: win32
+            arch: x64
+            runner: windows-latest
+            target_name: win32-x64
+            bin_suffix: '.exe'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (22.x)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run build --if-present
+
+      - name: Build standalone executable with Yekpare
+        run: npx yekpare build --target ${{ matrix.target.target_name }} --strip
+
+      - name: Validate built executable
+        shell: bash
+        run: |
+          ./dist/yekpare${{ matrix.target.bin_suffix }} --version || true
+          ./dist/yekpare${{ matrix.target.bin_suffix }} --help || true
+
+      - name: Package release archive
+        shell: bash
+        run: |
+          mkdir -p release-pkg
+          cp ./dist/yekpare${{ matrix.target.bin_suffix }} release-pkg/
+          cd release-pkg
+          if [ "${{ matrix.target.os }}" = "win32" ]; then
+            7z a ../yekpare-${{ matrix.target.target_name }}.zip ./*
+          else
+            tar -czvf ../yekpare-${{ matrix.target.target_name }}.tar.gz ./*
+          fi
+          cd ..
+          # Build Debian (.deb) package on Linux
+          if [ "${{ matrix.target.os }}" = "linux" ]; then
+            VERSION=$(node -p "require('./package.json').version")
+            mkdir -p deb-pkg/DEBIAN deb-pkg/usr/bin
+            cp ./dist/yekpare deb-pkg/usr/bin/yekpare
+            chmod 0755 deb-pkg/usr/bin/yekpare
+            {
+              echo "Package: yekpare"
+              echo "Version: ${VERSION}"
+              echo "Section: utils"
+              echo "Priority: optional"
+              echo "Architecture: amd64"
+              echo "Maintainer: yekpare maintainers"
+              echo "Description: yekpare standalone CLI executable"
+            } > deb-pkg/DEBIAN/control
+            dpkg-deb --build deb-pkg yekpare_${VERSION}_amd64.deb
+          fi
+
+      - name: Upload Platform Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yekpare-${{ matrix.target.target_name }}
+          path: |
+            yekpare-*.*
+            yekpare_*.deb
+
+  publish-github-release:
+    name: Publish GitHub Release
+    needs: build-release
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Generate SHA-256 Checksums
+        shell: bash
+        working-directory: release-artifacts
+        run: |
+          sha256sum yekpare-* > SHA256SUMS.txt || true
+          cat SHA256SUMS.txt
+      - name: Update Homebrew Formula Checksums
+        shell: bash
+        working-directory: release-artifacts
+        run: |
+          DARWIN_ARM64_SHA=$(sha256sum yekpare-darwin-arm64.tar.gz 2>/dev/null | awk '{print $1}' || echo "")
+          LINUX_X64_SHA=$(sha256sum yekpare-linux-x64.tar.gz 2>/dev/null | awk '{print $1}' || echo "")
+
+          if [ -f ../Formula/yekpare.rb ]; then
+            [ -n "$DARWIN_ARM64_SHA" ] && sed -i "s/REPLACE_WITH_DARWIN_ARM64_SHA256/$DARWIN_ARM64_SHA/g" ../Formula/yekpare.rb || true
+            [ -n "$LINUX_X64_SHA" ] && sed -i "s/REPLACE_WITH_LINUX_X64_SHA256/$LINUX_X64_SHA/g" ../Formula/yekpare.rb || true
+            cp ../Formula/yekpare.rb ./yekpare.rb
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-artifacts/yekpare-*.tar.gz
+            release-artifacts/yekpare-*.zip
+            release-artifacts/yekpare_*.deb
+            release-artifacts/yekpare.rb
+            release-artifacts/SHA256SUMS.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  publish-npm:
+    name: Publish to NPM
+    needs: build-release
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (22.x)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run build --if-present
+
+      - name: Publish to NPM
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

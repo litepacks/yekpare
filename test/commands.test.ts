@@ -147,10 +147,11 @@ describe("CLI Commands Unit Test Suite", () => {
     assert.equal(inspectResult.contents.bundleSize, 8000);
   });
 
-  test("ci: generates GitHub Actions matrix workflow cleanly", async () => {
+  test("ci: generates GitHub Actions matrix workflow cleanly with custom options", async () => {
     const ciDir = path.join(tmpRoot, "ci-project");
     fs.mkdirSync(ciDir, { recursive: true });
 
+    // Standard workflow
     await runCiCommand({ cwd: ciDir });
     const workflowPath = path.join(ciDir, ".github", "workflows", "yekpare-release.yml");
     assert.ok(fs.existsSync(workflowPath));
@@ -160,6 +161,26 @@ describe("CLI Commands Unit Test Suite", () => {
     assert.match(content, /macos-14/);
     assert.match(content, /ubuntu-latest/);
     assert.match(content, /windows-latest/);
+
+    // Advanced workflow with deb, homebrew, npm, upx options
+    await runCiCommand({
+      cwd: ciDir,
+      node: "22",
+      deb: true,
+      homebrew: true,
+      npm: true,
+      strip: true,
+      upx: true,
+    });
+
+    const advContent = fs.readFileSync(workflowPath, "utf8");
+    assert.match(advContent, /Build Debian \(\.deb\) package/);
+    assert.match(advContent, /dpkg-deb --build deb-pkg/);
+    assert.match(advContent, /Update Homebrew Formula Checksums/);
+    assert.match(advContent, /publish-npm:/);
+    assert.match(advContent, /npm publish --provenance/);
+    assert.match(advContent, /--strip --upx/);
+    assert.match(advContent, /node-version: '22'/);
   });
 
   test("homebrew: generates Formula with repository and binary name", async () => {

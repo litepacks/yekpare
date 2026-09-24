@@ -38,14 +38,6 @@ export function generateHomebrewFormula(options: {
         bin.install "${options.appName}"
       end
     end
-    if Hardware::CPU.intel?
-      url "#{homepage}/releases/download/v#{version}/${options.appName}-darwin-x64.tar.gz"
-      sha256 "REPLACE_WITH_DARWIN_X64_SHA256"
-
-      def install
-        bin.install "${options.appName}"
-      end
-    end
   end
 
   on_linux do

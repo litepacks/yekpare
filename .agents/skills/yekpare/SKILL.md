@@ -25,8 +25,9 @@ Yekpare is a complete developer toolchain for compiling Node.js CLI applications
 | `yekpare test [binary]` | Validates binary execution and flag responses | `--args <list>`, `--json` |
 | `yekpare diff <b1> <b2>` | Compares two binaries or build manifests | `--json` |
 | `yekpare release` | Packages binaries into archives with `SHA256SUMS` | `--format <tar.gz\|tar.xz\|zip>`, `--dry-run` |
+| `yekpare installer` | Generates one-line bash installer script (`install.sh`) | `--repo <user/repo>`, `-o <path>`, `--dir <dir>` |
 | `yekpare homebrew` | Generates Homebrew Formula for tap distribution | `--repo <user/repo>`, `--name <tool>` |
-| `yekpare ci [provider]` | Generates multi-platform CI matrix workflow (GitHub) | `--output <path>` |
+| `yekpare ci [provider]` | Generates multi-platform CI release workflow (GitHub) | `--deb`, `--homebrew`, `--npm`, `--strip`, `--node 22`, `-o <file>` |
 
 ---
 

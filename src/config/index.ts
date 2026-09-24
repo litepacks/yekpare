@@ -136,6 +136,7 @@ export async function resolveConfig(
     sea: { ...rawConfig.sea, ...overrides.sea },
     binary: { ...rawConfig.binary, ...overrides.binary },
     release: { ...rawConfig.release, ...overrides.release },
+    ci: { ...rawConfig.ci, ...overrides.ci },
     validation: { ...rawConfig.validation, ...overrides.validation },
   };
 
@@ -160,6 +161,8 @@ export async function resolveConfig(
 
   // Resolve version
   const version = merged.version || inspection.packageVersion || "0.1.0";
+  const description = inspection.description;
+  const author = inspection.author;
 
   // Resolve targets
   const targets =
@@ -240,10 +243,16 @@ export async function resolveConfig(
     ...rawDefines,
   };
 
+  const detectedNodeMajor = inspection.nodeVersion
+    ? inspection.nodeVersion.replace(/[^0-9.]/g, "").split(".")[0]
+    : "22";
+
   return {
     entry,
     name,
     version,
+    description,
+    author,
     targets,
     assets: {
       patterns: assetPatterns,
@@ -280,6 +289,16 @@ export async function resolveConfig(
     },
     release: {
       format: merged.release?.format ?? "tar.gz",
+    },
+    ci: {
+      provider: merged.ci?.provider ?? "github",
+      nodeVersion: merged.ci?.nodeVersion || detectedNodeMajor || "22",
+      deb: merged.ci?.deb ?? false,
+      homebrew: merged.ci?.homebrew ?? false,
+      npm: merged.ci?.npm ?? false,
+      strip: merged.ci?.strip ?? (merged.binary?.strip ?? true),
+      upx: merged.ci?.upx ?? (merged.binary?.upx ?? false),
+      output: merged.ci?.output,
     },
     configFile,
     projectRoot,

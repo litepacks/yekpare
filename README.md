@@ -18,7 +18,7 @@
 - 📁 **Asset Discovery & Embedding** with optional Brotli/Gzip compression
 - ⚡ **Unified Runtime Asset API (`yekpare/runtime`)** with automatic local/SEA switching and atomic cache extraction
 - 🧩 **Native Addon Handling** (`.node` binaries extracted to cache and loaded via `process.dlopen`)
-- 🎯 **Target Compatibility Matrix** across macOS (Apple Silicon / Intel), Linux (x64 / arm64), and Windows
+- 🎯 **Target Compatibility Matrix** across macOS (Apple Silicon), Linux (x64 / arm64), and Windows
 - 🔬 **Binary Inspection & Manifest Embedding** with sanitized metadata
 - 🚀 **CI Matrix Generation** (`.github/workflows/yekpare-release.yml`)
 - 🍺 **Homebrew Formula Generation**
@@ -31,6 +31,14 @@
 
 ### 1. Installation
 
+#### A. Standalone Binary (macOS & Linux - No Node.js Required)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/litepacks/yekpare/main/install.sh | bash
+```
+
+#### B. Via NPM / NPX (Node.js Projects)
+
 ```bash
 npm install -D yekpare
 # or run directly with npx
@@ -40,7 +48,7 @@ npx yekpare --help
 ### 2. Initialize Configuration
 
 ```bash
-npx yekpare init
+yekpare init # or npx yekpare init
 ```
 
 Generates `yekpare.config.ts`:
@@ -54,7 +62,6 @@ export default defineConfig({
 
   targets: [
     "darwin-arm64",
-    "darwin-x64",
     "linux-x64",
     "linux-arm64",
     "win32-x64",
@@ -187,6 +194,7 @@ const binaryTool = asset.path("bin/helper-tool");
 | `yekpare inspect <binary>` | Extracts and displays embedded metadata, sizes, and asset tables |
 | `yekpare trace -- <cmd>` | Observes runtime module loads, native addons, and fs reads |
 | `yekpare ci [provider]` | Generates multi-platform GitHub Actions release workflow |
+| `yekpare installer` | Generates one-line standalone bash installer script (`install.sh`) |
 | `yekpare homebrew` | Generates Homebrew tap formula for distributing your binary |
 | `yekpare test [binary]` | Runs automated health and assertion checks on the binary |
 | `yekpare diff <b1> <b2>` | Compares two binaries (sizes, manifests, embedded assets) |
@@ -306,19 +314,90 @@ npx yekpare build --define __DEBUG__=false
 
 ---
 
-## CI/CD Multi-Platform Matrix
+## CI/CD Multi-Platform Release Pipeline
 
-Generate a complete GitHub Actions matrix build workflow:
+Generate a complete, production-ready GitHub Actions release matrix workflow with automated packaging and distribution:
 
 ```bash
+# Standard multi-platform matrix
 npx yekpare ci github
+
+# Full release pipeline with Debian package, Homebrew auto-updater, and NPM publishing
+npx yekpare ci github --deb --homebrew --npm --node 22 --strip
 ```
 
-Creates `.github/workflows/yekpare-release.yml` supporting:
-- macOS Apple Silicon (`macos-14`, `darwin-arm64`)
-- macOS Intel (`macos-13`, `darwin-x64`)
-- Linux x64 (`ubuntu-latest`, `linux-x64`)
-- Windows x64 (`windows-latest`, `win32-x64`)
+### Pipeline Features & CLI Options
+
+| Flag | Description |
+|---|---|
+| `--deb` | Builds Debian (`.deb`) package in the Linux matrix job and attaches it to GitHub Release |
+| `--homebrew` | Auto-calculates SHA-256 checksums from built tarballs and injects them into `Formula/<app>.rb` |
+| `--npm` | Adds automated NPM publish job with `--provenance` (via `NPM_TOKEN` secret) |
+| `--strip` | Strips binary debug symbols during CI build (default: enabled) |
+| `--upx` | Enables UPX binary compression in CI build matrix |
+| `--node <version>` | Sets target Node.js version in CI workflow (e.g. `22` or `24`) |
+| `-o, --output <path>` | Custom workflow file path (default: `.github/workflows/yekpare-release.yml`) |
+
+### In `yekpare.config.ts`
+
+Configure pipeline options directly in your project configuration:
+
+```ts
+import { defineConfig } from "yekpare";
+
+export default defineConfig({
+  name: "my-cli",
+  entry: "src/cli.ts",
+
+  ci: {
+    provider: "github",
+    nodeVersion: "22",
+    strip: true,
+    deb: true,      // Build .deb package on Linux
+    homebrew: true, // Auto-update Formula checksums on release
+    npm: true,      // Publish to NPM on release tag
+  },
+});
+```
+
+The generated workflow triggers automatically on version tags (`v*`) and manual workflow dispatches (`workflow_dispatch`).
+
+---
+
+## One-Line Bash Installer (`install.sh`)
+
+Generate a standalone, zero-dependency `install.sh` script that enables one-command installation across **macOS** (Apple Silicon) and **Linux** (x64 & ARM64):
+
+```bash
+npx yekpare installer --repo my-org/my-cli
+```
+
+Outputs an executable `install.sh` in your repository root.
+
+### Features of the Generated Script
+* ⚡ **Zero Dependencies:** Pure POSIX/Bash with `curl`/`wget` and `tar`.
+* 🔍 **Auto-Detection:** Detects OS (`Darwin` / `Linux`) and architecture (`arm64` / `x64`) automatically.
+* 📦 **Direct GitHub Release Fetch:** Downloads the correct pre-built tarball (`<app>-<target>.tar.gz`) from your GitHub Releases.
+* 🛡️ **Safe & Clean:** Uses `mktemp` and cleans up temporary files with `trap EXIT INT TERM`.
+* 📁 **Smart Path Handling:** Defaults to `/usr/local/bin`, falls back to `~/.local/bin` if permissions require it, and verifies `$PATH`.
+
+### User Installation Experience
+
+Your users can install or upgrade your standalone CLI with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/my-org/my-cli/main/install.sh | bash
+```
+
+Custom installation options:
+
+```bash
+# Install to custom directory
+curl -fsSL https://raw.githubusercontent.com/my-org/my-cli/main/install.sh | bash -s -- --dir ~/.local/bin
+
+# Install a specific release version
+curl -fsSL https://raw.githubusercontent.com/my-org/my-cli/main/install.sh | bash -s -- --version v1.2.0
+```
 
 ---
 

@@ -100,6 +100,11 @@ export interface YekpareConfig {
    * Release packaging options.
    */
   release?: ReleaseOptions;
+
+  /**
+   * Continuous integration and release pipeline generation options.
+   */
+  ci?: CiOptions;
 }
 
 export interface BinaryOptimizationOptions {
@@ -114,10 +119,23 @@ export interface ReleaseOptions {
   format?: ReleaseArchiveFormat;
 }
 
+export interface CiOptions {
+  provider?: "github";
+  nodeVersion?: string;
+  deb?: boolean;
+  homebrew?: boolean;
+  npm?: boolean;
+  strip?: boolean;
+  upx?: boolean;
+  output?: string;
+}
+
 export interface ResolvedConfig {
   entry: string;
   name: string;
   version: string;
+  description?: string;
+  author?: string;
   targets: TargetPlatform[];
   assets: {
     patterns: string[];
@@ -148,6 +166,16 @@ export interface ResolvedConfig {
   };
   release: {
     format: ReleaseArchiveFormat;
+  };
+  ci: {
+    provider: "github";
+    nodeVersion: string;
+    deb: boolean;
+    homebrew: boolean;
+    npm: boolean;
+    strip: boolean;
+    upx: boolean;
+    output?: string;
   };
   validation: {
     runVersionCheck: boolean;
